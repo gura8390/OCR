@@ -1142,6 +1142,13 @@ impl App {
                     changed |= option(ui, "复制结果", |ui, _| {
                         toggle(ui, p, &mut self.settings.auto_copy, "复制结果").changed()
                     });
+                    ui.label(
+                        RichText::new(
+                            "开启后截图识别在后台完成，自动复制结果；从托盘打开可查看记录。",
+                        )
+                        .size(12.0)
+                        .color(p.muted),
+                    );
                 });
                 section(ui, p, "其他", |ui| {
                     changed |= option(ui, "截图前隐藏主窗口", |ui, _| {

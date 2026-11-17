@@ -1,0 +1,12 @@
+{
+    "executable_sha256":  "5da203edce5140345f31339060ff84ca0b473c8fff0674b39d5e70accf3dc1b6",
+    "fixture_sha256":  "cd0888494df5715ccd1349ab03e1cdb60934b586646f289125b67e75fdb000e3",
+    "method":  "Windows UI Automation, native window and WinEvent visibility checks, isolated profile, synthetic clipboard image, shared capture worker",
+    "capture_entry":  "app --clipboard uses the same background worker and result handler as F4 after image capture",
+    "checks":  [
+
+               ],
+    "success":  false,
+    "error":  "Cold background recognition created a main window.",
+    "clipboard_restored":  true
+}

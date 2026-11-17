@@ -8,6 +8,8 @@ Windows x64 离线文字识别工具。0.2.0 按 Umi-OCR Paddle v2.1.5 的首屏
 
 按 **F4** 后拖选屏幕区域。拖动时黄色边框标出识别范围，松开鼠标开始识别。`Esc` 和右键取消选区。关闭主窗口默认留在托盘，Windows 将图标折叠时，从时钟旁的上箭头展开。托盘菜单提供截图、粘贴、扫码、打开主窗和退出。`Alt+F4` 保持系统行为。
 
+开启截图页“识图后的操作 → 复制结果”后，截图和托盘剪贴板识别在后台完成，自动把非空结果写入剪贴板，主窗口保持隐藏。通过托盘打开主窗可查看、编辑或重新复制记录。关闭该选项后，识别时显示主窗。取消截图会恢复截图前的窗口状态。二维码扫描保留显示结果的行为。
+
 - **截图OCR**的左侧是图片与文本框，右侧切换设置和记录。支持重截上一选区、粘贴、复制文本框及编辑识别文字。
 - **批量OCR**和**批量文档**先添加待处理文件，再按开始。可预览、设置忽略区域、暂停和停止，以及按选定格式导出。
 - **文档**支持 PDF、XPS、CBZ、EPUB、FB2 和传统无 DRM 的 MOBI，支持 PDF 文字层优先、密码 PDF、双层和纯文本 PDF 导出。EPUB、FB2 和 MOBI 以重排版式呈现，插图另页交给 OCR。忽略区域按原图像素设置。纯文本 PDF 从系统中选择可嵌入的字体。
@@ -30,7 +32,7 @@ Start-Process -FilePath .\WfZiUiBp.exe -ArgumentList '--path "C:\test\input.png"
 .\WfZiUiBp.exe --serve --port 1225 --threads 4
 ```
 
-`--show`、`--hide`、`--quit`、`--reload`、`--repeat`、`--clipboard` 可控制同一桌面实例。用 `--hide` 启动时，先初始化原生托盘和 F4，等首次显示或有识别结果才创建主窗口。`--path`、带 `screen=0 rect=x,y,w,h` 的 `--screenshot`、`--qrcode_read` 和 `--qrcode_create` 可单独调用。GUI 子系统程序可用 `Start-Process -Wait` 等待批处理结束。`--output`、`--output_append`、`--clip` 和 `--json` 可控制输出。
+`--show`、`--hide`、`--quit`、`--reload`、`--repeat`、`--clipboard` 可控制同一桌面实例。用 `--hide` 启动时，先初始化原生托盘和 F4；启用复制结果时，后台识别和历史保留也不创建主窗，直到用户明确打开界面。同一识别工作线程和模型会话在打开界面后继续复用。`--path`、带 `screen=0 rect=x,y,w,h` 的 `--screenshot`、`--qrcode_read` 和 `--qrcode_create` 可单独调用。GUI 子系统程序可用 `Start-Process -Wait` 等待批处理结束。`--output`、`--output_append`、`--clip` 和 `--json` 可控制输出。
 
 HTTP 服务提供 Umi 风格的 `/api/ocr`、`/api/ocr/get_options`、`/api/qrcode`、`/api/doc/*`。文档接口支持 PDF 和 CBZ。上传、结果读取和下载需使用同一服务进程。监听默认限于本机。
 

@@ -2,6 +2,12 @@
 /dist/
 /tools/__pycache__/
 /verification/*
+!/verification/silent-v023/
+/verification/silent-v023/*
+!/verification/silent-v023/silent-baseline.json
+!/verification/silent-v023/silent-candidate.json
+!/verification/silent-v023/a11y-v023.json
+!/verification/silent-v023/http-v023.json
 !/verification/fixtures/
 !/verification/benchmark-v020-release-4threads.json
 !/verification/benchmark-v020-release-16threads.json

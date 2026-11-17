@@ -96,18 +96,14 @@ pub enum Update {
     Done,
 }
 
-pub fn start(
+pub fn start_with_notify(
     root: PathBuf,
-    context: eframe::egui::Context,
-) -> (mpsc::Sender<Request>, mpsc::Receiver<Update>) {
+    notify: impl Fn(Update) + Send + 'static,
+) -> mpsc::Sender<Request> {
     let (requests, work) = mpsc::channel::<Request>();
-    let (output, updates) = mpsc::channel();
     thread::spawn(move || {
         let mut engine = None;
-        let send = |event| {
-            let _ = output.send(event);
-            context.request_repaint();
-        };
+        let send = notify;
         for request in work {
             let count = request.inputs.len();
             for (index, input) in request.inputs.into_iter().enumerate() {
@@ -170,7 +166,7 @@ pub fn start(
             send(Update::Done);
         }
     });
-    (requests, updates)
+    requests
 }
 
 fn check_control(control: &AtomicU8) -> Result<()> {

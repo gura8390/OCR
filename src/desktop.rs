@@ -29,6 +29,7 @@ const MSG_TRAY_ENABLED: u32 = WM_APP + 3;
 const MSG_COMMAND: u32 = WM_APP + 4;
 const MSG_CANCEL_CAPTURE: u32 = WM_APP + 5;
 const MSG_CAPTURE_WINDOW: u32 = WM_APP + 6;
+const MSG_CAPTURE_SILENT: u32 = WM_APP + 7;
 const HOTKEY_ID: i32 = 1;
 const TRAY_ID: u32 = 1;
 const NIN_KEYSELECT: u32 = NIN_SELECT | NINF_KEY; // shellapi.h macro
@@ -85,6 +86,7 @@ pub enum DesktopEvent {
     Reload,
     Clipboard,
     Error(String),
+    JobUpdate(crate::jobs::Update),
 }
 
 pub fn forward_existing(action: DesktopCommand) -> bool {
@@ -226,6 +228,11 @@ impl Desktop {
         let target = if hide { hwnd as usize } else { 0 };
         self.post(MSG_CAPTURE_WINDOW, target)
             .context("无法更新截图前的窗口隐藏设置")
+    }
+
+    pub fn set_capture_silent(&self, silent: bool) -> Result<()> {
+        self.post(MSG_CAPTURE_SILENT, usize::from(silent))
+            .context("无法更新截图后的静默设置")
     }
 
     pub fn set_hotkey(&mut self, enabled: bool) -> Result<()> {
@@ -443,6 +450,7 @@ struct DesktopState {
     cursor: Cell<POINT>,
     last_selection: RefCell<Option<LastSelection>>,
     capture_window: Cell<HWND>,
+    capture_silent: Cell<bool>,
     pending_capture: Cell<Option<CaptureRequest>>,
     hidden_window: Cell<Option<HiddenWindow>>,
     tray_enabled: Cell<bool>,
@@ -501,6 +509,9 @@ impl DesktopState {
             }
             CaptureRequest::Repeat => {
                 let image = self.repeat_image();
+                if image.is_ok() && self.capture_silent.get() {
+                    self.hidden_window.take();
+                }
                 self.restore_window();
                 let _ = self.events.send(DesktopEvent::Capture(image?));
                 Ok(())
@@ -615,6 +626,9 @@ impl DesktopState {
             Ok(image)
         })();
         let kind = self.capture_kind.get();
+        if cropped.is_ok() && matches!(kind, CaptureKind::Text) && self.capture_silent.get() {
+            self.hidden_window.take();
+        }
         self.close_overlay();
         match cropped {
             Ok(image) => {
@@ -845,6 +859,7 @@ fn run_desktop(
             cursor: Cell::new(POINT::default()),
             last_selection: RefCell::new(None),
             capture_window: Cell::new(null_mut()),
+            capture_silent: Cell::new(false),
             pending_capture: Cell::new(None),
             hidden_window: Cell::new(None),
             tray_enabled: Cell::new(false),
@@ -1001,6 +1016,10 @@ unsafe extern "system" fn control_proc(
                     if main.is_null() || own_window(main) {
                         state.capture_window.set(main);
                     }
+                    return 0;
+                }
+                MSG_CAPTURE_SILENT => {
+                    state.capture_silent.set(wparam != 0);
                     return 0;
                 }
                 WM_TIMER if wparam == TRAY_RETRY_TIMER => {

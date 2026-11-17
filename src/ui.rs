@@ -25,6 +25,7 @@ use std::{
 mod batch_panel;
 mod event_loop;
 mod settings_panel;
+mod silent;
 mod workspace;
 
 use workspace::{MediaUi, fonts, style, texture};
@@ -80,6 +81,17 @@ impl Default for Settings {
 }
 
 impl Settings {
+    fn job_options(&self) -> jobs::Options {
+        jobs::Options {
+            ocr: self.ocr.clone(),
+            parser: self.parser.clone(),
+            ignore: self.ignore.clone(),
+            dpi: self.dpi,
+            native_text: self.native_text,
+            password: String::new(),
+        }
+    }
+
     fn theme_id(&self) -> &str {
         self.theme.as_deref().unwrap_or(if self.dark {
             "Default Dark"
@@ -148,6 +160,8 @@ struct NativeDesktop {
     events: mpsc::Receiver<DesktopEvent>,
     tray_registered: bool,
     error: Option<String>,
+    requests: mpsc::Sender<jobs::Request>,
+    cold: silent::State,
 }
 
 fn load_settings(path: &Path) -> Settings {
@@ -160,17 +174,35 @@ fn load_settings(path: &Path) -> Settings {
 pub fn run(mut launch: Launch) -> Result<()> {
     let mut settings = load_settings(&launch.settings);
     let (sender, events) = mpsc::channel();
-    let (desktop, error) =
-        match Desktop::start(sender, settings.hotkey && !launch.no_hotkey, settings.tray) {
-            Ok(desktop) => (Some(desktop), None),
-            Err(error) => (None, Some(format!("Windows 截图服务启动失败 · {error:#}"))),
-        };
+    let (desktop, error) = match Desktop::start(
+        sender.clone(),
+        settings.hotkey && !launch.no_hotkey,
+        settings.tray,
+    ) {
+        Ok(desktop) => (Some(desktop), None),
+        Err(error) => (None, Some(format!("Windows 截图服务启动失败 · {error:#}"))),
+    };
     let mut native = NativeDesktop {
         desktop,
         events,
         tray_registered: false,
         error,
+        requests: jobs::start_with_notify(launch.root.clone(), move |update| {
+            let _ = sender.send(DesktopEvent::JobUpdate(update));
+        }),
+        cold: silent::State::default(),
     };
+    if let Some(desktop) = &native.desktop {
+        desktop.set_capture_silent(settings.auto_copy)?;
+    }
+    if launch.capture.is_some()
+        && settings.auto_copy
+        && !launch.capture_is_qr
+        && let Some(image) = launch.capture.take()
+    {
+        native.cold.capture(image, &settings, &native.requests);
+        launch.hidden = true;
+    }
     if launch.hidden || launch.use_startup_preference && settings.startup_hidden {
         launch.initial = DesktopCommand::Show;
         if let Some(desktop) = &mut native.desktop {
@@ -178,10 +210,23 @@ pub fn run(mut launch: Launch) -> Result<()> {
                 match native.events.recv().context("Windows 桌面线程已退出")? {
                     DesktopEvent::Show => break,
                     DesktopEvent::Clipboard => {
+                        if settings.auto_copy {
+                            match jobs::clipboard_image() {
+                                Ok(image) => {
+                                    native.cold.capture(image, &settings, &native.requests)
+                                }
+                                Err(error) => native.cold.error = Some(format!("{error:#}")),
+                            }
+                            continue;
+                        }
                         launch.initial = DesktopCommand::Clipboard;
                         break;
                     }
                     DesktopEvent::Capture(image) => {
+                        if settings.auto_copy {
+                            native.cold.capture(image, &settings, &native.requests);
+                            continue;
+                        }
                         launch.capture = Some(image);
                         break;
                     }
@@ -200,12 +245,16 @@ pub fn run(mut launch: Launch) -> Result<()> {
                         if let Err(error) = desktop
                             .set_hotkey(settings.hotkey && !launch.no_hotkey)
                             .and_then(|()| desktop.set_tray(settings.tray))
+                            .and_then(|()| desktop.set_capture_silent(settings.auto_copy))
                         {
                             native.error = Some(format!("{error:#}"));
                         }
                     }
                     DesktopEvent::TrayStatus(registered) => native.tray_registered = registered,
                     DesktopEvent::Error(error) => native.error = Some(error),
+                    DesktopEvent::JobUpdate(update) => {
+                        native.cold.update(update, &settings, &native.requests);
+                    }
                     DesktopEvent::CaptureCancelled | DesktopEvent::Hide => {}
                 }
             }
@@ -237,7 +286,6 @@ struct App {
     desktop_events: mpsc::Receiver<DesktopEvent>,
     tray_registered: bool,
     requests: mpsc::Sender<jobs::Request>,
-    updates: mpsc::Receiver<Update>,
     control: Arc<AtomicU8>,
     busy: Option<Page>,
     status: String,
@@ -285,6 +333,8 @@ impl App {
             events,
             tray_registered,
             error,
+            requests,
+            cold,
         } = native;
         let (native_ui, desktop_events) = mpsc::channel();
         let context = cc.egui_ctx.clone();
@@ -297,41 +347,12 @@ impl App {
             });
         thread::spawn(move || {
             for event in events {
-                let wake_window = matches!(
-                    &event,
-                    DesktopEvent::Show
-                        | DesktopEvent::Clipboard
-                        | DesktopEvent::Capture(_)
-                        | DesktopEvent::QrCapture(_)
-                        | DesktopEvent::Paths(_)
-                        | DesktopEvent::Exit
-                );
                 if native_ui.send(event).is_err() {
                     break;
-                }
-                if wake_window && let Some(handle) = handle {
-                    use windows_sys::Win32::UI::WindowsAndMessaging::{
-                        GetWindowThreadProcessId, IsIconic, IsWindowVisible, SW_RESTORE,
-                        SW_SHOWNOACTIVATE, ShowWindowAsync,
-                    };
-                    let window = handle as windows_sys::Win32::Foundation::HWND;
-                    // An invisible Win32 window does not deliver the redraw that egui requests.
-                    let mut process = 0;
-                    unsafe {
-                        GetWindowThreadProcessId(window, &mut process);
-                        if process == std::process::id() {
-                            if IsIconic(window) != 0 {
-                                ShowWindowAsync(window, SW_RESTORE);
-                            } else if IsWindowVisible(window) == 0 {
-                                ShowWindowAsync(window, SW_SHOWNOACTIVATE);
-                            }
-                        }
-                    }
                 }
                 context.request_repaint();
             }
         });
-        let (requests, updates) = jobs::start(launch.root, cc.egui_ctx.clone());
         let mut tabs = Vec::new();
         for &tab in &settings.open_tabs {
             if !tabs.contains(&tab) {
@@ -354,23 +375,22 @@ impl App {
             desktop_events,
             tray_registered,
             requests,
-            updates,
-            control: Arc::new(AtomicU8::new(0)),
-            busy: None,
-            status: "等待输入".into(),
-            error,
+            control: cold.control,
+            busy: cold.busy.then_some(Page::Capture),
+            status: cold.status.unwrap_or_else(|| "等待输入".into()),
+            error: error.or(cold.error),
             page,
             tabs,
             batch: batch_panel::BatchUi::default(),
             media: std::array::from_fn(|_| MediaUi::default()),
-            results: std::array::from_fn(|_| Vec::new()),
+            results: [cold.history, Vec::new(), Vec::new(), Vec::new()],
             selected: [0; 4],
             preview: None,
             active_box: None,
             exit: false,
             initial: Some(launch.initial),
             initial_paths: launch.paths,
-            pending_capture: launch.capture.map(|image| {
+            pending_capture: launch.capture.or(cold.pending).map(|image| {
                 (
                     if launch.capture_is_qr {
                         Page::Barcode
@@ -390,19 +410,16 @@ impl App {
             document_password: String::new(),
             native_handle: handle,
         };
+        app.selected[Page::Capture.index()] =
+            app.results[Page::Capture.index()].len().saturating_sub(1);
         app.set_capture_preference();
         app
     }
 
     fn options(&self) -> jobs::Options {
-        jobs::Options {
-            ocr: self.settings.ocr.clone(),
-            parser: self.settings.parser.clone(),
-            ignore: self.settings.ignore.clone(),
-            dpi: self.settings.dpi,
-            native_text: self.settings.native_text,
-            password: self.document_password.clone(),
-        }
+        let mut options = self.settings.job_options();
+        options.password = self.document_password.clone();
+        options
     }
 
     fn run_jobs(&mut self, page: Page, inputs: Vec<Source>, pdf: Option<(PathBuf, PdfMode)>) {
@@ -527,6 +544,7 @@ impl App {
     }
 
     fn save_settings(&mut self) {
+        self.set_capture_preference();
         let result = (|| -> Result<()> {
             if let Some(parent) = self.settings_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -551,7 +569,14 @@ impl App {
             }
             DesktopCommand::Hide => context.send_viewport_cmd(ViewportCommand::Visible(false)),
             DesktopCommand::Clipboard => {
-                self.command(context, DesktopCommand::Show);
+                self.command(
+                    context,
+                    if self.settings.auto_copy {
+                        DesktopCommand::Hide
+                    } else {
+                        DesktopCommand::Show
+                    },
+                );
                 self.clipboard(Page::Capture);
             }
             DesktopCommand::Exit => {
@@ -612,68 +637,77 @@ impl App {
                     self.import(paths);
                 }
                 DesktopEvent::CaptureCancelled => {}
+                DesktopEvent::JobUpdate(update) => self.job_update(update),
                 DesktopEvent::TrayStatus(registered) => self.tray_registered = registered,
                 DesktopEvent::Error(error) => {
                     self.error = Some(error);
                 }
             }
         }
-        while let Ok(update) = self.updates.try_recv() {
-            if let Some(page @ (Page::Images | Page::Documents)) = self.busy {
-                self.batch_observe(page, &update);
-            }
-            match update {
-                Update::Progress(status) => self.status = status,
-                Update::Error(error) => self.error = Some(error),
-                Update::Result(item) => {
-                    let page = self.busy.unwrap_or(Page::Capture);
-                    let list = &mut self.results[page.index()];
-                    let limit = if matches!(page, Page::Capture | Page::Barcode) {
-                        6
+    }
+
+    fn job_update(&mut self, update: Update) {
+        if let Some(page @ (Page::Images | Page::Documents)) = self.busy {
+            self.batch_observe(page, &update);
+        }
+        match update {
+            Update::Progress(status) => self.status = status,
+            Update::Error(error) => self.error = Some(error),
+            Update::Result(item) => {
+                let page = self.busy.unwrap_or(Page::Capture);
+                let list = &mut self.results[page.index()];
+                let limit = if matches!(page, Page::Capture | Page::Barcode) {
+                    6
+                } else {
+                    24
+                };
+                if list.len() >= limit {
+                    let older = list.len() - limit;
+                    list[older].preview = None;
+                }
+                self.status = format!(
+                    "{} · {:.0} 毫秒",
+                    if item.text.trim().is_empty() {
+                        "未识别到内容"
                     } else {
-                        24
-                    };
-                    if list.len() >= limit {
-                        let older = list.len() - limit;
-                        list[older].preview = None;
-                    }
-                    self.status = format!(
-                        "{} · {:.0} 毫秒",
-                        if item.text.trim().is_empty() {
-                            "未识别到内容"
-                        } else {
-                            "识别完成"
-                        },
-                        item.elapsed.as_secs_f64() * 1000.0
-                    );
-                    if page == Page::Capture
-                        && self.settings.auto_copy
-                        && !item.text.trim().is_empty()
-                    {
-                        context.copy_text(item.text.clone());
-                    }
-                    list.push(item);
-                    self.selected[page.index()] = list.len() - 1;
-                    self.preview = None;
-                    self.active_box = None;
-                    if let Some(index) = MediaUi::index(page) {
-                        self.media[index].show_history();
+                        "识别完成"
+                    },
+                    item.elapsed.as_secs_f64() * 1000.0
+                );
+                if page == Page::Capture && self.settings.auto_copy && !item.text.trim().is_empty()
+                {
+                    if let Err(error) = silent::copy_text(&item.text) {
+                        self.error = Some(error);
                     }
                 }
-                Update::Done => {
-                    self.busy = None;
-                    if let Some((page, image)) = self.pending_capture.take() {
-                        self.run_jobs(page, vec![Source::Memory("屏幕选区".into(), image)], None);
-                    } else {
-                        self.run_next_import();
-                    }
+                list.push(item);
+                self.selected[page.index()] = list.len() - 1;
+                self.preview = None;
+                self.active_box = None;
+                if let Some(index) = MediaUi::index(page) {
+                    self.media[index].show_history();
+                }
+            }
+            Update::Done => {
+                self.busy = None;
+                if let Some((page, image)) = self.pending_capture.take() {
+                    self.run_jobs(page, vec![Source::Memory("屏幕选区".into(), image)], None);
+                } else {
+                    self.run_next_import();
                 }
             }
         }
     }
 
     fn captured(&mut self, context: &egui::Context, page: Page, image: DynamicImage) {
-        self.command(context, DesktopCommand::Show);
+        self.command(
+            context,
+            if page == Page::Capture && self.settings.auto_copy {
+                DesktopCommand::Hide
+            } else {
+                DesktopCommand::Show
+            },
+        );
         if self.busy.is_some() {
             self.pending_capture = Some((page, image));
             self.status = "已保留最新截图，当前任务结束后识别".into();
@@ -713,6 +747,10 @@ impl App {
     }
 
     fn set_capture_preference(&mut self) {
+        if let Some(desktop) = &self.desktop {
+            let result = desktop.set_capture_silent(self.settings.auto_copy);
+            self.apply(result);
+        }
         if let (Some(desktop), Some(handle)) = (&self.desktop, self.native_handle) {
             let result = desktop.set_capture_window(handle, self.settings.hide_before_capture);
             self.apply(result);

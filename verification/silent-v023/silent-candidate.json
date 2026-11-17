@@ -1,0 +1,71 @@
+{
+    "executable_sha256":  "416756e144db332ac5746b844192549f789d5093568af9e7927014da101a8dda",
+    "fixture_sha256":  "cd0888494df5715ccd1349ab03e1cdb60934b586646f289125b67e75fdb000e3",
+    "method":  "Windows UI Automation, native window and WinEvent visibility checks, isolated profile, synthetic clipboard image, shared capture worker",
+    "capture_entry":  "app --clipboard uses the same background worker and result handler as F4 after image capture",
+    "checks":  [
+                   {
+                       "name":  "cold tray recognition copies without creating a main window",
+                       "detail":  {
+                                      "result":  "离线文字识别 本地测试 ABC 123\n",
+                                      "main_window_created":  false,
+                                      "show_events":  0,
+                                      "retained_same_process":  true
+                                  }
+                   },
+                   {
+                       "name":  "explicit show exposes cold result through TextPattern",
+                       "detail":  "离线文字识别 本地测试 ABC 123\n"
+                   },
+                   {
+                       "name":  "copy setting supports TogglePattern and persists both values",
+                       "detail":  [
+                                      false,
+                                      true
+                                  ]
+                   },
+                   {
+                       "name":  "warm tray recognition copies without showing the same main window",
+                       "detail":  {
+                                      "result":  "离线文字识别 本地测试 ABC 123\n",
+                                      "main_window_created":  true,
+                                      "show_events":  0,
+                                      "retained_same_process":  true
+                                  }
+                   },
+                   {
+                       "name":  "repeated warm recognition remains hidden",
+                       "detail":  {
+                                      "result":  "离线文字识别 本地测试 ABC 123\n",
+                                      "main_window_created":  true,
+                                      "show_events":  0,
+                                      "retained_same_process":  true
+                                  }
+                   },
+                   {
+                       "name":  "disabling auto copy shows results and keeps the clipboard image",
+                       "detail":  "离线文字识别 本地测试 ABC 123\n"
+                   },
+                   {
+                       "name":  "tray idle CPU after repeated recognition",
+                       "detail":  {
+                                      "cpu_ms":  15.625,
+                                      "wall_ms":  5050.552,
+                                      "cpu_ms_per_wall_second":  3.094,
+                                      "limit_cpu_ms_per_wall_second":  150,
+                                      "passed":  true,
+                                      "show_events":  0
+                                  }
+                   },
+                   {
+                       "name":  "explicit show restores after all hidden operations",
+                       "detail":  "same native window and same process"
+                   },
+                   {
+                       "name":  "explicit quit exits the isolated process",
+                       "detail":  true
+                   }
+               ],
+    "success":  true,
+    "clipboard_restored":  true
+}

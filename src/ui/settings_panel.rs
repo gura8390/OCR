@@ -128,7 +128,7 @@ impl App {
             0 => {
                 let mut startup = self.startup;
                 settings_row(ui, "开机自启", |ui, label| {
-                    ui.checkbox(&mut startup, "").labelled_by(label);
+                    named_checkbox(ui, &mut startup, "开机自启").labelled_by(label);
                 });
                 if startup != self.startup {
                     self.change_startup(startup);
@@ -180,12 +180,12 @@ impl App {
             }
             2 => {
                 let mut changed = settings_row(ui, "启动时缩小到任务栏", |ui, label| {
-                    ui.checkbox(&mut self.settings.startup_hidden, "")
+                    named_checkbox(ui, &mut self.settings.startup_hidden, "启动时缩小到任务栏")
                         .labelled_by(label)
                         .changed()
                 });
                 if settings_row(ui, "窗口置顶", |ui, label| {
-                    ui.checkbox(&mut self.settings.window_top, "")
+                    named_checkbox(ui, &mut self.settings.window_top, "窗口置顶")
                         .labelled_by(label)
                         .changed()
                 }) {
@@ -193,7 +193,7 @@ impl App {
                     changed = true;
                 }
                 changed |= settings_row(ui, "锁定标签栏", |ui, label| {
-                    ui.checkbox(&mut self.settings.tabs_locked, "")
+                    named_checkbox(ui, &mut self.settings.tabs_locked, "锁定标签栏")
                         .labelled_by(label)
                         .changed()
                 });
@@ -227,18 +227,23 @@ impl App {
                 });
                 let mut changed = hotkey != self.settings.hotkey && self.change_hotkey(hotkey);
                 if settings_row(ui, "截图前隐藏主窗口", |ui, label| {
-                    ui.checkbox(&mut self.settings.hide_before_capture, "")
-                        .labelled_by(label)
-                        .changed()
+                    named_checkbox(
+                        ui,
+                        &mut self.settings.hide_before_capture,
+                        "截图前隐藏主窗口",
+                    )
+                    .labelled_by(label)
+                    .changed()
                 }) {
                     self.set_capture_preference();
                     changed = true;
                 }
                 changed |= settings_row(ui, "识别后复制结果", |ui, label| {
-                    ui.checkbox(&mut self.settings.auto_copy, "")
+                    named_checkbox(ui, &mut self.settings.auto_copy, "识别后复制结果")
                         .labelled_by(label)
                         .changed()
                 });
+                ui.label("开启后截图识别在后台完成，自动复制结果；从托盘打开可查看记录。");
                 changed
             }
             4 => {
@@ -334,6 +339,14 @@ impl App {
         set_window_level(context, self.settings.window_top);
         self.set_capture_preference();
     }
+}
+
+fn named_checkbox(ui: &mut egui::Ui, value: &mut bool, name: &str) -> egui::Response {
+    let response = ui.push_id(name, |ui| ui.checkbox(value, "")).inner;
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), *value, name)
+    });
+    response
 }
 
 fn settings_row<R>(
