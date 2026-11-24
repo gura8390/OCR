@@ -2,6 +2,45 @@
 
 Windows x64 离线文字识别工具。0.2.0 按 Umi-OCR Paddle v2.1.5 的首屏、双栏工作区和标签导航重做界面，沿用原版图标与五套主题。桌面、截图、任务调度和接口用 Rust 实现，CPU 推理由随包的 ONNX Runtime 运行。
 
+## 优势
+
+- 推理放在独立子进程中，闲置后自动退出并归还内存，平时只剩一个轻量托盘。
+- 模型加载后的内存、识别延迟和 CPU 占用都远低于 Umi-OCR，同时错字更少。
+- 默认使用 PaddlePaddle 的 PP-OCRv6 Tiny 模型（[说明](https://huggingface.co/blog/PaddlePaddle/pp-ocrv6)），体积小、速度快。
+- 完全离线，模型和运行库随包，不需要账号、网络或 Windows OCR 语言包。
+- 一个程序覆盖截图、批量图片、PDF 等文档、双层 PDF、二维码、排版解析、Umi 兼容 HTTP 接口、命令行和无障碍。
+- 用 Rust 原生实现，不依赖 Python 或 Qt 运行时。
+
+| 指标 | 本工具（v6 Tiny） | Umi-OCR 2.1.5 | 本工具 / Umi |
+| --- | --- | --- | --- |
+| 服务就绪后闲置工作集 | 10.06 MiB | 189.52 MiB | 5.3% |
+| 模型加载后工作集 | 129.18 MiB | 1114.61 MiB | 11.6% |
+| 识别峰值工作集 | 139.55 MiB | 1129.48 MiB | 12.4% |
+| 服务就绪时间 | 25.70 ms | 2034.38 ms | 1.3% |
+| 首张延迟 | 101.87 ms | 672.35 ms | 15.2% |
+| 热态中位延迟 | 39.23 ms | 105.03 ms | 37.4% |
+| 热态 p95 延迟 | 121.20 ms | 416.01 ms | 29.1% |
+| 吞吐 | 21.87 张/秒 | 6.56 张/秒 | 333.4% |
+| 每张 CPU 时间 | 88.22 ms | 1018.45 ms | 8.7% |
+| 字符错误率 | 0.44% | 1.98% | 22.2% |
+| 托盘待机工作集 | 11.34 MiB | — | — |
+| 识别后闲置卸载工作集 | 0.88 MiB | — | — |
+
+测试条件：Intel Core i9-14900HX，Windows 11 build 26100，平衡电源；CPU 推理、4 线程、长边限制 960，经本机 HTTP 串行识别 8 张合成图（455 个字符）。字符错误率的样本量小，仅作相对参考。数据来自 [0.2.0 性能对照](docs/性能对照.md)；[11-06 复测](verification/retest-20261106/复测报告.md)的内存数据基本一致，热态中位延迟为 51.47 ms 对 164.96 ms。托盘待机为隐藏托盘、未加载模型时测得；闲置卸载为 3 秒阈值、小图样本下测得（[回归记录](docs/空闲卸载回归.md)）。Umi 没有同模式的数据。
+
+竞品功能对照（基于公开资料，非同机实测）：
+
+| | 本工具 | [Umi-OCR](https://github.com/hiroi-sora/Umi-OCR/releases) | [PowerToys 文本提取器](https://learn.microsoft.com/en-us/windows/powertoys/text-extractor) | [Text-Grab](https://github.com/TheJoeFin/Text-Grab) | [PixPin](https://pixpin.com/zh-hans/docs/getting-started/membership) |
+| --- | --- | --- | --- | --- | --- |
+| 识别引擎 | PP-OCRv6 Tiny 及 Paddle 旧模型（ONNX Runtime） | PaddleOCR-json 或 RapidOCR 插件 | Windows.Media.Ocr | Windows OCR；4.17 测试版内置英文 Tesseract | 本地 OCR，引擎未公开 |
+| 识别中文的前提 | 开箱即用 | 开箱即用 | 安装中文 OCR 语言包 | 安装中文 OCR 语言包 | 开箱即用 |
+| 批量与文档 | 批量图片，PDF 等 6 种文档格式，双层 PDF | 批量图片，文档识别 | 仅屏幕选区 | 文件夹内全部图片，PDF 多页抓取 | 文档识别为会员功能 |
+| 本机 HTTP 接口 | 有，兼容 Umi | 有 | 无 | 无，4.17 测试版在做无界面 OCR | 未查到 |
+| 需联网的功能 | 无 | 无 | 无 | 无 | 翻译、表格、公式 |
+| 最新版本 | 0.2.3-p3（2026-11） | 2.1.5（2025-03） | 随 PowerToys 更新 | 4.16.0（2026-10） | 3.6.6.0（2026-10） |
+
+竞品信息核对于 2026-11-24。本工具暂不提供表格结构识别、翻译、公式识别和贴图。
+
 ## 使用
 
 从 [GitHub Releases](https://github.com/gura8390/OCR/releases) 选择 Windows x64 安装程序或便携 ZIP。安装程序为当前用户创建开始菜单入口并提供卸载。便携包解压后运行 `OCR.exe`，程序、`models` 和同目录运行库需一起保留。
