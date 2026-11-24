@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$VisualStudioPath,
     [string]$SdkLibraryRoot,
@@ -169,7 +169,7 @@ foreach ($runtime in $crtNames) {
 }
 
 $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'Cargo.toml') -Raw
-$match = [regex]::Match($manifest, '(?m)^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"')
+$match = [regex]::Match($manifest, '(?m)^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+(?:-p[0-9]+)?)"')
 if (-not $match.Success) {
     throw 'The package version could not be read from Cargo.toml.'
 }

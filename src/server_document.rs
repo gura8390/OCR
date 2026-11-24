@@ -12,8 +12,9 @@ use tiny_http::{Header, Method, Request, Response};
 
 use super::{get_options, job_options, read_payload, respond, result};
 use crate::document::{self, SearchablePdf};
-use crate::engine::{Engine, OcrOptions, TextBlock};
+use crate::engine::{OcrOptions, TextBlock};
 use crate::layout::{self, LayoutBlock};
+use crate::ocr_worker::OcrClient;
 
 const MAX_UPLOAD: u64 = 64 * 1024 * 1024;
 const MAX_TASKS: usize = 8;
@@ -21,7 +22,7 @@ const MAX_PAGES: u32 = 300;
 const RETENTION: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct Documents {
-    root: PathBuf,
+    ocr: OcrClient,
     tasks: HashMap<String, Arc<Task>>,
     worker: Option<mpsc::SyncSender<Work>>,
 }
@@ -75,9 +76,9 @@ struct PageResult {
 }
 
 impl Documents {
-    pub fn new(root: PathBuf) -> Self {
+    pub fn new(ocr: OcrClient) -> Self {
         Self {
-            root,
+            ocr,
             tasks: HashMap::new(),
             worker: None,
         }
@@ -231,7 +232,7 @@ impl Documents {
         });
         let worker = self
             .worker
-            .get_or_insert_with(|| start_worker(self.root.clone()));
+            .get_or_insert_with(|| start_worker(self.ocr.clone()));
         worker
             .try_send(Work {
                 task: task.clone(),
@@ -492,16 +493,15 @@ impl Options {
     }
 }
 
-fn start_worker(root: PathBuf) -> mpsc::SyncSender<Work> {
+fn start_worker(ocr: OcrClient) -> mpsc::SyncSender<Work> {
     let (sender, receiver) = mpsc::sync_channel::<Work>(MAX_TASKS);
     std::thread::spawn(move || {
-        let mut engine = None;
         for Work { task, options } in receiver {
             if task.cancelled.load(Ordering::Acquire) {
                 continue;
             }
             task.state.lock().unwrap().stage = "running";
-            let result = run_document(&root, &mut engine, &task, &options);
+            let result = run_document(&ocr, &task, &options);
             let mut state = task.state.lock().unwrap();
             state.completed = Some(Instant::now());
             match result {
@@ -516,12 +516,7 @@ fn start_worker(root: PathBuf) -> mpsc::SyncSender<Work> {
     sender
 }
 
-fn run_document(
-    root: &Path,
-    engine: &mut Option<Engine>,
-    task: &Task,
-    options: &Options,
-) -> Result<()> {
+fn run_document(ocr: &OcrClient, task: &Task, options: &Options) -> Result<()> {
     let mut pdf = SearchablePdf::new();
     let mut text_pdf = SearchablePdf::new_text_only().ok();
     document::visit_with_password(
@@ -550,13 +545,7 @@ fn run_document(
                     (page.text.clone().unwrap_or_default(), Vec::new())
                 }
                 None => {
-                    if engine.is_none() {
-                        *engine = Some(Engine::new(root, &options.ocr)?);
-                    }
-                    let blocks = engine
-                        .as_mut()
-                        .unwrap()
-                        .recognize(&page.image, &options.ocr)?;
+                    let blocks = ocr.recognize(&page.image, &options.ocr)?;
                     let blocks = layout::process(blocks, &options.parser, ignore);
                     (layout::text(&blocks), blocks)
                 }

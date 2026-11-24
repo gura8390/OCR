@@ -30,9 +30,12 @@ if ((Get-FileHash -LiteralPath $compilerArchive -Algorithm SHA256).Hash -ne $com
 }
 
 $versionText = Get-Content -LiteralPath (Join-Path $project 'Cargo.toml') -Raw
-$versionMatch = [regex]::Match($versionText, '(?m)^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"')
+$versionMatch = [regex]::Match($versionText, '(?m)^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)(?:-p([0-9]+))?"')
 if (-not $versionMatch.Success) { throw 'Cannot read the package version from Cargo.toml.' }
-$version = $versionMatch.Groups[1].Value
+$baseVersion = $versionMatch.Groups[1].Value
+$patchNumber = if ($versionMatch.Groups[2].Success) { $versionMatch.Groups[2].Value } else { '0' }
+$version = if ($versionMatch.Groups[2].Success) { "$baseVersion-p$patchNumber" } else { $baseVersion }
+$viVersion = "$baseVersion.$patchNumber"
 $setupName = "WfZiUiBp-$version-setup-x64.exe"
 $null = New-Item -ItemType Directory -Path $OutputDirectory -Force
 $output = Get-Item -LiteralPath $OutputDirectory
@@ -168,7 +171,7 @@ try {
     $stagedSetup = Join-Path $stage $setupName
     $definition = Join-Path $project 'installer\WfZiUiBp.nsi'
     $icon = Join-Path $project 'assets\umiocr.ico'
-    & $compiler /V3 /WX /INPUTCHARSET UTF8 "/DAPP_VERSION=$version" "/DAPP_ICON=$icon" `
+    & $compiler /V3 /WX /INPUTCHARSET UTF8 "/DAPP_VERSION=$version" "/DAPP_VI_VERSION=$viVersion" "/DAPP_ICON=$icon" `
         "/DPAYLOAD_INCLUDE=$include" "/DINSTALLER_OUTPUT=$stagedSetup" $definition
     if ($LASTEXITCODE -ne 0) { throw "NSIS compilation failed with exit code $LASTEXITCODE." }
 

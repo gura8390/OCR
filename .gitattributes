@@ -5,3 +5,4 @@ models/** -text
 verification/retest-20261106/** -text
 verification/tray-idle-v022/*.json -text whitespace=cr-at-eol
 verification/silent-v023/*.json -text whitespace=cr-at-eol
+verification/idle-unload-v023-p1/*.json -text whitespace=cr-at-eol

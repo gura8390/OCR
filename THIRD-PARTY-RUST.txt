@@ -1,7 +1,7 @@
 THIRD-PARTY NOTICES FOR WINDOWS X64 RUST DEPENDENCIES
 
 Target: x86_64-pc-windows-msvc
-Cargo.lock SHA-256: 42a24bf2b8ac5bb85a7e2f21a2f0efc8a7d8a48f100f747a884cd9ebd0af8141
+Cargo.lock SHA-256: 8600ca84ab45939758966a280aec2edb0075db9ad36ba973a5064adb16f22f37
 299 normal dependencies and 245 unique notice texts
 Scope: the locked Cargo graph for this target with the project's default features.
 Development-only and build-only dependency edges are outside this inventory.

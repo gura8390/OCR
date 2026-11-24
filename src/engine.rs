@@ -35,6 +35,7 @@ pub struct OcrOptions {
     pub threads: usize,
     pub classify: bool,
     pub side_limit: u32,
+    pub idle_seconds: u64,
 }
 
 impl Default for OcrOptions {
@@ -44,6 +45,7 @@ impl Default for OcrOptions {
             threads: 4,
             classify: false,
             side_limit: 960,
+            idle_seconds: crate::ocr_worker::DEFAULT_IDLE_SECONDS,
         }
     }
 }

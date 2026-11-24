@@ -6,6 +6,7 @@ mod document_extra;
 mod engine;
 mod jobs;
 mod layout;
+mod ocr_worker;
 mod qr;
 mod server;
 mod startup;
@@ -29,6 +30,8 @@ struct Args {
     model_root: Option<PathBuf>,
     profile: Option<PathBuf>,
     ocr: OcrOptions,
+    idle_seconds: Option<u64>,
+    ocr_worker: bool,
     parser: Option<String>,
     port: Option<u16>,
     serve: bool,
@@ -65,6 +68,8 @@ impl Args {
                 "--profile" => options.profile = Some(value()?.into()),
                 "--no-hotkey" => options.no_hotkey = true,
                 "--threads" => options.ocr.threads = string(value()?)?.parse()?,
+                "--idle-seconds" => options.idle_seconds = Some(string(value()?)?.parse()?),
+                "--ocr-worker" => options.ocr_worker = true,
                 "--language" => options.ocr.language = string(value()?)?,
                 "--side-limit" => options.ocr.side_limit = string(value()?)?.parse()?,
                 "--classify" => options.ocr.classify = true,
@@ -111,12 +116,23 @@ impl Args {
             (32..=4096).contains(&options.ocr.side_limit),
             "检测边长须为 32 到 4096"
         );
+        if let Some(seconds) = options.idle_seconds {
+            ensure!(
+                seconds <= ocr_worker::MAX_IDLE_SECONDS,
+                "闲置卸载时间须为 0 到 {} 秒",
+                ocr_worker::MAX_IDLE_SECONDS
+            );
+        }
         Ok(options)
     }
 }
 
 fn main() {
     if let Err(error) = run() {
+        let is_worker = std::env::args_os().any(|arg| arg == "--ocr-worker");
+        if is_worker {
+            std::process::exit(1);
+        }
         let message = format!("{error:#}");
         if std::env::args_os().len() > 1 {
             attach_console();
@@ -153,7 +169,7 @@ fn run() -> Result<()> {
     if args.help {
         attach_console();
         println!(
-            "文字识别 WfZiUiBp {}\n\n  --screenshot [screen=0 rect=x,y,w,h]\n  --clipboard [--output FILE | --clip]\n  --path IMAGE ... [--language chinese | v6_tiny] [--json]\n  --qrcode_create TEXT IMAGE\n  --qrcode_read IMAGE\n  --serve [--port 1225] [--threads 4] [--models DIR]\n  --show | --hide | --quit | --reload | --repeat\n  --profile FILE --no-hotkey",
+            "文字识别 WfZiUiBp {}\n\n  --screenshot [screen=0 rect=x,y,w,h]\n  --clipboard [--output FILE | --clip]\n  --path IMAGE ... [--language chinese | v6_tiny] [--json]\n  --qrcode_create TEXT IMAGE\n  --qrcode_read IMAGE\n  --serve [--port 1225] [--threads 4] [--idle-seconds 90] [--models DIR]\n  --show | --hide | --quit | --reload | --repeat\n  --profile FILE --no-hotkey [--idle-seconds 90]",
             env!("CARGO_PKG_VERSION")
         );
         return Ok(());
@@ -175,12 +191,19 @@ fn run() -> Result<()> {
         return emit(&args, &data);
     }
     let model_root = args.model_root.clone().unwrap_or_else(default_models);
+    if args.ocr_worker {
+        return ocr_worker::run_worker(&model_root);
+    }
     if args.serve {
         attach_console();
+        let mut ocr = args.ocr;
+        if let Some(seconds) = args.idle_seconds {
+            ocr.idle_seconds = seconds;
+        }
         return server::serve(
             SocketAddr::from((Ipv4Addr::LOCALHOST, args.port.unwrap_or(1225))),
             model_root,
-            args.ocr,
+            ocr,
         );
     }
     if args.cli_images
@@ -262,6 +285,7 @@ fn run() -> Result<()> {
         hidden,
         use_startup_preference,
         no_hotkey: args.no_hotkey,
+        idle_override: args.idle_seconds,
         paths: args.paths,
         capture,
         capture_is_qr: false,

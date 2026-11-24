@@ -18,7 +18,10 @@ CRCCheck force
 Name "${APP_NAME}"
 OutFile "${INSTALLER_OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\WfZiUiBp"
-VIProductVersion "${APP_VERSION}.0"
+!ifndef APP_VI_VERSION
+!define APP_VI_VERSION "${APP_VERSION}.0"
+!endif
+VIProductVersion "${APP_VI_VERSION}"
 VIAddVersionKey /LANG=2052 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=2052 "FileDescription" "${APP_NAME} 安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${APP_VERSION}"

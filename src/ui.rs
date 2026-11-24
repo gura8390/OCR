@@ -150,6 +150,7 @@ pub struct Launch {
     pub hidden: bool,
     pub use_startup_preference: bool,
     pub no_hotkey: bool,
+    pub idle_override: Option<u64>,
     pub paths: Vec<PathBuf>,
     pub capture: Option<DynamicImage>,
     pub capture_is_qr: bool,
@@ -187,9 +188,14 @@ pub fn run(mut launch: Launch) -> Result<()> {
         events,
         tray_registered: false,
         error,
-        requests: jobs::start_with_notify(launch.root.clone(), move |update| {
-            let _ = sender.send(DesktopEvent::JobUpdate(update));
-        }),
+        requests: jobs::start_with_notify(
+            launch.root.clone(),
+            launch.idle_override,
+            settings.ocr.idle_seconds,
+            move |update| {
+                let _ = sender.send(DesktopEvent::JobUpdate(update));
+            },
+        ),
         cold: silent::State::default(),
     };
     if let Some(desktop) = &native.desktop {
@@ -242,6 +248,13 @@ pub fn run(mut launch: Launch) -> Result<()> {
                     DesktopEvent::Exit => return Ok(()),
                     DesktopEvent::Reload => {
                         settings = load_settings(&launch.settings);
+                        let _ = native.requests.send(jobs::Request {
+                            inputs: Vec::new(),
+                            options: settings.job_options(),
+                            kind: Kind::Capture,
+                            pdf: None,
+                            control: native.cold.control.clone(),
+                        });
                         if let Err(error) = desktop
                             .set_hotkey(settings.hotkey && !launch.no_hotkey)
                             .and_then(|()| desktop.set_tray(settings.tray))
@@ -545,6 +558,7 @@ impl App {
 
     fn save_settings(&mut self) {
         self.set_capture_preference();
+        self.sync_worker_options();
         let result = (|| -> Result<()> {
             if let Some(parent) = self.settings_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -556,6 +570,19 @@ impl App {
             Ok(())
         })();
         self.apply(result);
+    }
+
+    fn sync_worker_options(&self) {
+        if self.busy.is_some() {
+            return;
+        }
+        let _ = self.requests.send(jobs::Request {
+            inputs: Vec::new(),
+            options: self.options(),
+            kind: Kind::Capture,
+            pdf: None,
+            control: self.control.clone(),
+        });
     }
 
     fn command(&mut self, context: &egui::Context, command: DesktopCommand) {
@@ -599,6 +626,7 @@ impl App {
                         },
                     ));
                     self.set_capture_preference();
+                    self.sync_worker_options();
                     if let Some(desktop) = &mut self.desktop {
                         let result = desktop
                             .set_hotkey(self.settings.hotkey && !self.no_hotkey)

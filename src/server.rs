@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read};
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::path::PathBuf;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Result, anyhow, bail};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -9,7 +9,8 @@ use image::{DynamicImage, ImageFormat, ImageReader};
 use serde_json::{Map, Value, json};
 use tiny_http::{Header, Method, Request, Response};
 
-use crate::engine::{Engine, OcrOptions};
+use crate::engine::OcrOptions;
+use crate::ocr_worker::{LoadError, OcrClient, OcrService};
 use crate::{layout, qr};
 
 #[path = "server_document.rs"]
@@ -31,8 +32,9 @@ const PARSERS: [(&str, &str); 8] = [
 pub fn serve(address: SocketAddr, root: PathBuf, options: OcrOptions) -> Result<()> {
     let server = tiny_http::Server::http(address)
         .map_err(|error| anyhow!("监听 {address} 失败：{error}"))?;
-    let mut engine = None;
-    let mut documents = document_api::Documents::new(root.clone());
+    let ocr_service = OcrService::start(root, Duration::from_secs(options.idle_seconds))?;
+    let ocr_client = ocr_service.client();
+    let mut documents = document_api::Documents::new(ocr_client.clone());
     eprintln!("http://{}", server.server_addr());
     for mut request in server.incoming_requests() {
         let path = request.url().split('?').next().unwrap_or_default();
@@ -46,7 +48,7 @@ pub fn serve(address: SocketAddr, root: PathBuf, options: OcrOptions) -> Result<
             (&Method::Get, "/api/ocr/get_options") => (200, get_options(&options)),
             (&Method::Post, "/api/ocr") => {
                 let result = match read_payload(&mut request) {
-                    Ok(payload) => recognize(&payload, &mut engine, &root, &options),
+                    Ok(payload) => recognize(&payload, &ocr_client, &options),
                     Err(error) => error,
                 };
                 (200, result)
@@ -197,12 +199,7 @@ fn job_options<'a>(opts: &'a Map<String, Value>, default: &OcrOptions) -> Result
     })
 }
 
-fn recognize(
-    payload: &Map<String, Value>,
-    engine: &mut Option<Engine>,
-    root: &Path,
-    default: &OcrOptions,
-) -> Value {
+fn recognize(payload: &Map<String, Value>, ocr: &OcrClient, default: &OcrOptions) -> Value {
     let Some(encoded) = payload.get("base64") else {
         return result(802, "请求中缺少 base64 字段。");
     };
@@ -225,14 +222,9 @@ fn recognize(
         Ok(image) => image,
         Err(error) => return result(202, format!("图片读取失败：{error}")),
     };
-    if engine.is_none() {
-        match Engine::new(root, &job.ocr) {
-            Ok(new_engine) => *engine = Some(new_engine),
-            Err(error) => return result(901, error.to_string()),
-        }
-    }
-    let blocks = match engine.as_mut().unwrap().recognize(&image, &job.ocr) {
+    let blocks = match ocr.recognize(&image, &job.ocr) {
         Ok(blocks) => layout::process(blocks, job.parser, &job.ignore),
+        Err(error) if error.is::<LoadError>() => return result(901, error.to_string()),
         Err(error) => return result(902, error.to_string()),
     };
     let (code, data) = if blocks.is_empty() {

@@ -269,11 +269,23 @@ impl App {
                 }
                 false
             }
-            5 => settings_row(ui, "线程数", |ui, label| {
-                ui.add(egui::DragValue::new(&mut self.settings.ocr.threads).range(1..=32))
+            5 => {
+                let mut changed = settings_row(ui, "线程数", |ui, label| {
+                    ui.add(egui::DragValue::new(&mut self.settings.ocr.threads).range(1..=32))
+                        .labelled_by(label)
+                        .changed()
+                });
+                changed |= settings_row(ui, "闲置卸载时间（秒）", |ui, label| {
+                    ui.add(
+                        egui::DragValue::new(&mut self.settings.ocr.idle_seconds)
+                            .range(0..=crate::ocr_worker::MAX_IDLE_SECONDS),
+                    )
                     .labelled_by(label)
                     .changed()
-            }),
+                });
+                ui.label("无识别任务达到该时间后退出推理子进程并释放内存；设为 0 表示常驻。");
+                changed
+            }
             _ => false,
         }
     }
@@ -334,6 +346,7 @@ impl App {
         self.settings.hide_before_capture = defaults.hide_before_capture;
         self.settings.auto_copy = defaults.auto_copy;
         self.settings.ocr.threads = defaults.ocr.threads;
+        self.settings.ocr.idle_seconds = defaults.ocr.idle_seconds;
         style(context, self.settings.theme_id());
         context.set_zoom_factor(self.settings.ui_scale);
         set_window_level(context, self.settings.window_top);

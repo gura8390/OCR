@@ -1,7 +1,8 @@
 use crate::{
     document,
-    engine::{Engine, OcrOptions, TextBlock},
+    engine::{OcrOptions, TextBlock},
     layout::{self, LayoutBlock},
+    ocr_worker::OcrWorker,
     qr,
 };
 use anyhow::{Context, Result, ensure};
@@ -98,13 +99,42 @@ pub enum Update {
 
 pub fn start_with_notify(
     root: PathBuf,
+    idle_override: Option<u64>,
+    initial_idle_seconds: u64,
     notify: impl Fn(Update) + Send + 'static,
 ) -> mpsc::Sender<Request> {
     let (requests, work) = mpsc::channel::<Request>();
     thread::spawn(move || {
-        let mut engine = None;
+        let mut worker = OcrWorker::new(root);
+        let mut idle_seconds = idle_override.unwrap_or(initial_idle_seconds);
         let send = notify;
-        for request in work {
+        loop {
+            let request = if worker.is_running() && idle_seconds > 0 {
+                let timeout = Duration::from_secs(idle_seconds);
+                let remaining = worker
+                    .last_used()
+                    .map(|used| timeout.saturating_sub(used.elapsed()))
+                    .unwrap_or(timeout);
+                match work.recv_timeout(remaining) {
+                    Ok(request) => request,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        worker.retire_idle();
+                        continue;
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+            } else {
+                match work.recv() {
+                    Ok(request) => request,
+                    Err(_) => break,
+                }
+            };
+            if idle_override.is_none() {
+                idle_seconds = request.options.ocr.idle_seconds;
+            }
+            if request.inputs.is_empty() {
+                continue;
+            }
             let count = request.inputs.len();
             for (index, input) in request.inputs.into_iter().enumerate() {
                 if check_control(&request.control).is_err() {
@@ -126,8 +156,7 @@ pub fn start_with_notify(
                 let timer = Instant::now();
                 let result = match (request.kind, input) {
                     (Kind::Document, Source::File(path)) => run_document(
-                        &root,
-                        &mut engine,
+                        &mut worker,
                         &path,
                         &request.options,
                         request.pdf.as_ref(),
@@ -145,9 +174,7 @@ pub fn start_with_notify(
                             Source::File(path) => read_image(&path),
                             Source::Memory(_, image) => Ok(image),
                         };
-                        image.and_then(|image| {
-                            run_image(&root, &mut engine, image, kind, &request.options)
-                        })
+                        image.and_then(|image| run_image(&mut worker, image, kind, &request.options))
                     }
                 };
                 match result {
@@ -165,6 +192,7 @@ pub fn start_with_notify(
             }
             send(Update::Done);
         }
+        worker.shutdown();
     });
     requests
 }
@@ -178,20 +206,15 @@ fn check_control(control: &AtomicU8) -> Result<()> {
 }
 
 fn recognize(
-    root: &Path,
-    engine: &mut Option<Engine>,
+    worker: &mut OcrWorker,
     image: &DynamicImage,
     options: &OcrOptions,
 ) -> Result<Vec<TextBlock>> {
-    if engine.is_none() {
-        *engine = Some(Engine::new(root, options)?);
-    }
-    engine.as_mut().unwrap().recognize(image, options)
+    worker.recognize(image, options)
 }
 
 fn run_image(
-    root: &Path,
-    engine: &mut Option<Engine>,
+    worker: &mut OcrWorker,
     image: DynamicImage,
     kind: Kind,
     options: &Options,
@@ -206,7 +229,7 @@ fn run_image(
         (text, Vec::new())
     } else {
         let blocks = layout::process(
-            recognize(root, engine, &image, &options.ocr)?,
+            recognize(worker, &image, &options.ocr)?,
             &options.parser,
             &options.ignore,
         );
@@ -228,8 +251,7 @@ fn run_image(
 }
 
 fn run_document(
-    root: &Path,
-    engine: &mut Option<Engine>,
+    worker: &mut OcrWorker,
     path: &Path,
     options: &Options,
     output: Option<&(PathBuf, PdfMode)>,
@@ -252,7 +274,7 @@ fn run_document(
             Some(text) => (text.clone(), Vec::new()),
             None => {
                 let blocks = layout::process(
-                    recognize(root, engine, &page.image, &options.ocr)?,
+                    recognize(worker, &page.image, &options.ocr)?,
                     &options.parser,
                     &options.ignore,
                 );
