@@ -1,10 +1,10 @@
-# 文字识别 WfZiUiBp
+# 文字识别 OCR
 
 Windows x64 离线文字识别工具。0.2.0 按 Umi-OCR Paddle v2.1.5 的首屏、双栏工作区和标签导航重做界面，沿用原版图标与五套主题。桌面、截图、任务调度和接口用 Rust 实现，CPU 推理由随包的 ONNX Runtime 运行。
 
 ## 使用
 
-从 [GitHub Releases](https://github.com/gura8390/WfZiUiBp/releases) 选择 Windows x64 安装程序或便携 ZIP。安装程序为当前用户创建开始菜单入口并提供卸载。便携包解压后运行 `WfZiUiBp.exe`，程序、`models` 和同目录运行库需一起保留。
+从 [GitHub Releases](https://github.com/gura8390/OCR/releases) 选择 Windows x64 安装程序或便携 ZIP。安装程序为当前用户创建开始菜单入口并提供卸载。便携包解压后运行 `WfZiUiBp.exe`，程序、`models` 和同目录运行库需一起保留。
 
 按 **F4** 后拖选屏幕区域。拖动时黄色边框标出识别范围，松开鼠标开始识别。`Esc` 和右键取消选区。关闭主窗口默认留在托盘，Windows 将图标折叠时，从时钟旁的上箭头展开。托盘菜单提供截图、粘贴、扫码、打开主窗和退出。`Alt+F4` 保持系统行为。
 

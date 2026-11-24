@@ -87,7 +87,7 @@ if (-not $SkipBuild) {
                 $flags += $savedRustFlags -split $separator
             }
             $roots = @(
-                @{ Path = $projectRoot; Label = '/build/WfZiUiBp' },
+                @{ Path = $projectRoot; Label = '/build/OCR' },
                 @{ Path = $env:USERPROFILE; Label = '/build/user' }
             )
             foreach ($root in $roots) {
