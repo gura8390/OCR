@@ -15,7 +15,7 @@ fn main() -> io::Result<()> {
         PathBuf::from(env::var_os("OUT_DIR").expect("Cargo OUT_DIR")).join("app-icon.res");
     fs::write(&resource, icon_resources())?;
     println!(
-        "cargo:rustc-link-arg-bin=wf-zi-ui-bp={}",
+        "cargo:rustc-link-arg-bin=ocr={}",
         resource.display()
     );
     Ok(())

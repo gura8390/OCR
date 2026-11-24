@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 
 $project = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $work = Join-Path $project 'verification\work'
-if (-not $PayloadRoot) { $PayloadRoot = Join-Path $project 'dist\WfZiUiBp' }
+if (-not $PayloadRoot) { $PayloadRoot = Join-Path $project 'dist\OCR' }
 if (-not $CompilerZip) { $CompilerZip = Join-Path $work 'installer-tools\nsis-3.12.zip' }
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $project 'dist' }
 if (-not $SevenZip) {
@@ -36,7 +36,7 @@ $baseVersion = $versionMatch.Groups[1].Value
 $patchNumber = if ($versionMatch.Groups[2].Success) { $versionMatch.Groups[2].Value } else { '0' }
 $version = if ($versionMatch.Groups[2].Success) { "$baseVersion-p$patchNumber" } else { $baseVersion }
 $viVersion = "$baseVersion.$patchNumber"
-$setupName = "WfZiUiBp-$version-setup-x64.exe"
+$setupName = "OCR-$version-setup-x64.exe"
 $null = New-Item -ItemType Directory -Path $OutputDirectory -Force
 $output = Get-Item -LiteralPath $OutputDirectory
 if ($output.Attributes -band [IO.FileAttributes]::ReparsePoint) {
@@ -68,7 +68,7 @@ foreach ($line in Get-Content -LiteralPath $checksumFile -Encoding utf8) {
     $expected[$relative] = $Matches[1]
 }
 
-if (-not $expected.ContainsKey('WfZiUiBp.exe') -or $expected.ContainsKey('SHA256SUMS.txt') -or
+if (-not $expected.ContainsKey('OCR.exe') -or $expected.ContainsKey('SHA256SUMS.txt') -or
     $expected.ContainsKey('Uninstall.exe')) {
     throw 'Unexpected application, checksum or uninstaller entries in the portable payload.'
 }
@@ -85,7 +85,7 @@ foreach ($file in $files) {
     }
 }
 
-$app = Join-Path $payload 'WfZiUiBp.exe'
+$app = Join-Path $payload 'OCR.exe'
 $pe = [IO.BinaryReader]::new([IO.File]::OpenRead($app))
 try {
     if ($pe.ReadUInt16() -ne 0x5a4d) { throw 'The portable executable is not a Windows PE.' }
@@ -169,7 +169,7 @@ try {
     )
     [IO.File]::WriteAllLines($include, [string[]]$lines, [Text.UTF8Encoding]::new($true))
     $stagedSetup = Join-Path $stage $setupName
-    $definition = Join-Path $project 'installer\WfZiUiBp.nsi'
+    $definition = Join-Path $project 'installer\OCR.nsi'
     $icon = Join-Path $project 'assets\umiocr.ico'
     & $compiler /V3 /WX /INPUTCHARSET UTF8 "/DAPP_VERSION=$version" "/DAPP_VI_VERSION=$viVersion" "/DAPP_ICON=$icon" `
         "/DPAYLOAD_INCLUDE=$include" "/DINSTALLER_OUTPUT=$stagedSetup" $definition

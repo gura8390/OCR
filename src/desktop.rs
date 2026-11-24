@@ -43,7 +43,7 @@ const MENU_CLIPBOARD: usize = 2;
 const MENU_QR_CAPTURE: usize = 3;
 const MENU_SHOW: usize = 4;
 const MENU_EXIT: usize = 5;
-const CONTROL_CLASS: &str = "WfZiUiBp_Desktop";
+const CONTROL_CLASS: &str = "OCR_Desktop";
 const PATH_MESSAGE: usize = 0x5746_5A50;
 const MAX_PATH_PAYLOAD: usize = 65_536;
 
@@ -690,7 +690,7 @@ impl DesktopState {
         let mut data = self.tray_data();
         data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
         data.uCallbackMessage = MSG_TRAY;
-        let title = wide("文字识别 WfZiUiBp");
+        let title = wide("文字识别 OCR");
         data.szTip[..title.len()].copy_from_slice(&title);
         unsafe {
             let dpi = GetDpiForSystem();
@@ -900,7 +900,7 @@ fn run_desktop(
 fn create_windows(state: &DesktopState) -> Result<HWND> {
     let instance = unsafe { GetModuleHandleW(null()) };
     let control_name = wide(CONTROL_CLASS);
-    let overlay_name = wide("WfZiUiBp_Capture");
+    let overlay_name = wide("OCR_Capture");
     register_class(instance, &control_name, Some(control_proc), false)?;
     register_class(instance, &overlay_name, Some(overlay_proc), true)?;
     let parameter = (state as *const DesktopState).cast();

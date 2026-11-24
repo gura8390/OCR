@@ -79,7 +79,7 @@ impl Engine {
         ensure!(runtime.is_file(), "缺少 ONNX Runtime {}", runtime.display());
         ort::init_from(&runtime)
             .with_context(|| format!("加载 ONNX Runtime {}", runtime.display()))?
-            .with_name("WfZiUiBp")
+            .with_name("OCR")
             .commit();
         let (rec, dictionary) = load_recognizer(&root, language, options.threads)?;
         Ok(Self {

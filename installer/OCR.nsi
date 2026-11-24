@@ -10,14 +10,14 @@ CRCCheck force
 !include "x64.nsh"
 !include "${PAYLOAD_INCLUDE}"
 
-!define APP_NAME "文字识别 WfZiUiBp"
-!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\WfZiUiBp"
+!define APP_NAME "文字识别 OCR"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\OCR"
 !define RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
-!define MAIN_CLASS "WfZiUiBp_Desktop"
+!define MAIN_CLASS "OCR_Desktop"
 
 Name "${APP_NAME}"
 OutFile "${INSTALLER_OUTPUT}"
-InstallDir "$LOCALAPPDATA\Programs\WfZiUiBp"
+InstallDir "$LOCALAPPDATA\Programs\OCR"
 !ifndef APP_VI_VERSION
 !define APP_VI_VERSION "${APP_VERSION}.0"
 !endif
@@ -26,7 +26,7 @@ VIAddVersionKey /LANG=2052 "ProductName" "${APP_NAME}"
 VIAddVersionKey /LANG=2052 "FileDescription" "${APP_NAME} 安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${APP_VERSION}"
 VIAddVersionKey /LANG=2052 "ProductVersion" "${APP_VERSION}"
-VIAddVersionKey /LANG=2052 "LegalCopyright" "WfZiUiBp contributors"
+VIAddVersionKey /LANG=2052 "LegalCopyright" "OCR contributors"
 
 Var StagePath
 Var BackupPath
@@ -34,7 +34,7 @@ Var BackupPath
 !define MUI_ICON "${APP_ICON}"
 !define MUI_UNICON "${APP_ICON}"
 !define MUI_ABORTWARNING
-!define MUI_WELCOMEPAGE_TEXT "本向导为当前 Windows 用户安装文字识别。应用文件放在当前用户的 Programs\WfZiUiBp 目录，安装结束后可从开始菜单手动打开。"
+!define MUI_WELCOMEPAGE_TEXT "本向导为当前 Windows 用户安装文字识别。应用文件放在当前用户的 Programs\OCR 目录，安装结束后可从开始菜单手动打开。"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_COMPONENTS
 !insertmacro MUI_PAGE_INSTFILES
@@ -63,7 +63,7 @@ Var BackupPath
 !macroend
 
 !macro LockInstaller
-    System::Call 'kernel32::CreateMutexW(p 0, i 0, w "Local\WfZiUiBp.Setup") p .r9 ?e'
+    System::Call 'kernel32::CreateMutexW(p 0, i 0, w "Local\OCR.Setup") p .r9 ?e'
     Pop $0
     ${If} $9 == 0
     ${OrIf} $0 == 183
@@ -83,7 +83,7 @@ Function .onInit
     !insertmacro LockInstaller
     SetShellVarContext current
     SetRegView 64
-    StrCpy $INSTDIR "$LOCALAPPDATA\Programs\WfZiUiBp"
+    StrCpy $INSTDIR "$LOCALAPPDATA\Programs\OCR"
 FunctionEnd
 
 Section "文字识别应用和开始菜单" Main
@@ -132,11 +132,11 @@ Section "文字识别应用和开始菜单" Main
     SetOutPath "$INSTDIR"
     ClearErrors
     CreateDirectory "$SMPROGRAMS\${APP_NAME}"
-    CreateShortCut "$SMPROGRAMS\${APP_NAME}\文字识别.lnk" "$INSTDIR\WfZiUiBp.exe"
+    CreateShortCut "$SMPROGRAMS\${APP_NAME}\文字识别.lnk" "$INSTDIR\OCR.exe"
     CreateShortCut "$SMPROGRAMS\${APP_NAME}\卸载文字识别.lnk" "$INSTDIR\Uninstall.exe"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP_NAME}"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${APP_VERSION}"
-    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" '$\"$INSTDIR\WfZiUiBp.exe$\",0'
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" '$\"$INSTDIR\OCR.exe$\",0'
     WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
     WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
     WriteRegStr HKCU "${UNINSTALL_KEY}" "QuietUninstallString" '$\"$INSTDIR\Uninstall.exe$\" /S'
@@ -179,14 +179,14 @@ installed:
 SectionEnd
 
 Section /o "创建桌面快捷方式" DesktopLink
-    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\WfZiUiBp.exe"
+    CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\OCR.exe"
 SectionEnd
 
 Function un.onInit
     !insertmacro LockInstaller
     SetShellVarContext current
     SetRegView 64
-    ${If} $INSTDIR != "$LOCALAPPDATA\Programs\WfZiUiBp"
+    ${If} $INSTDIR != "$LOCALAPPDATA\Programs\OCR"
         MessageBox MB_ICONSTOP|MB_OK "请从应用的原安装目录运行卸载程序。" /SD IDOK
         SetErrorLevel 1
         Abort
@@ -198,7 +198,7 @@ FunctionEnd
 Section "Uninstall"
     SetOutPath "$LOCALAPPDATA\Programs"
     !insertmacro RemovePayload "$INSTDIR"
-    ${If} ${FileExists} "$INSTDIR\WfZiUiBp.exe"
+    ${If} ${FileExists} "$INSTDIR\OCR.exe"
         MessageBox MB_ICONEXCLAMATION|MB_OK "程序文件仍存在。请检查文件占用或子目录中的文件系统链接后重试卸载。" /SD IDOK
         SetErrorLevel 1
         Abort
@@ -207,9 +207,9 @@ Section "Uninstall"
     Delete "$SMPROGRAMS\${APP_NAME}\文字识别.lnk"
     Delete "$SMPROGRAMS\${APP_NAME}\卸载文字识别.lnk"
     RMDir "$SMPROGRAMS\${APP_NAME}"
-    ReadRegStr $0 HKCU "${RUN_KEY}" "WfZiUiBp"
-    ${If} $0 == '$\"$INSTDIR\WfZiUiBp.exe$\" --hide'
-        DeleteRegValue HKCU "${RUN_KEY}" "WfZiUiBp"
+    ReadRegStr $0 HKCU "${RUN_KEY}" "OCR"
+    ${If} $0 == '$\"$INSTDIR\OCR.exe$\" --hide'
+        DeleteRegValue HKCU "${RUN_KEY}" "OCR"
     ${EndIf}
     DeleteRegKey HKCU "${UNINSTALL_KEY}"
     Delete "$INSTDIR\Uninstall.exe"

@@ -285,7 +285,7 @@ pub fn run(mut launch: Launch) -> Result<()> {
         ..Default::default()
     };
     event_loop::run(
-        "文字识别 · WfZiUiBp",
+        "文字识别 · OCR",
         options,
         Box::new(move |cc| Ok(Box::new(App::new(cc, launch, settings, native)))),
     )

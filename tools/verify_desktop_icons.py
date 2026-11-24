@@ -11,7 +11,7 @@ import struct
 
 ROOT = Path(__file__).resolve().parents[1]
 ICON_SHA256 = "5efa713be8e51cd1367d032f676e195697a99ffd4e5e6711617a77490adc9703"
-CONTROL_CLASS = "WfZiUiBp_Desktop"
+CONTROL_CLASS = "OCR_Desktop"
 ICON_ID = 1
 TRAY_ID = 1
 
@@ -150,7 +150,7 @@ def verify_live_icons(pid, expected_digest):
                 control_windows.append(window)
             else:
                 get_title(window, name, len(name))
-                if "WfZiUiBp" in name.value:
+                if "OCR" in name.value:
                     main_windows.append(window)
         return True
 
@@ -186,7 +186,7 @@ def verify_live_icons(pid, expected_digest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--exe", type=Path, default=ROOT / "dist" / "WfZiUiBp" / "WfZiUiBp.exe")
+    parser.add_argument("--exe", type=Path, default=ROOT / "dist" / "OCR" / "OCR.exe")
     parser.add_argument("--pid", type=int, help="inspect this existing process without starting it")
     arguments = parser.parse_args()
     try:

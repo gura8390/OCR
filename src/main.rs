@@ -169,7 +169,7 @@ fn run() -> Result<()> {
     if args.help {
         attach_console();
         println!(
-            "文字识别 WfZiUiBp {}\n\n  --screenshot [screen=0 rect=x,y,w,h]\n  --clipboard [--output FILE | --clip]\n  --path IMAGE ... [--language chinese | v6_tiny] [--json]\n  --qrcode_create TEXT IMAGE\n  --qrcode_read IMAGE\n  --serve [--port 1225] [--threads 4] [--idle-seconds 90] [--models DIR]\n  --show | --hide | --quit | --reload | --repeat\n  --profile FILE --no-hotkey [--idle-seconds 90]",
+            "文字识别 OCR {}\n\n  --screenshot [screen=0 rect=x,y,w,h]\n  --clipboard [--output FILE | --clip]\n  --path IMAGE ... [--language chinese | v6_tiny] [--json]\n  --qrcode_create TEXT IMAGE\n  --qrcode_read IMAGE\n  --serve [--port 1225] [--threads 4] [--idle-seconds 90] [--models DIR]\n  --show | --hide | --quit | --reload | --repeat\n  --profile FILE --no-hotkey [--idle-seconds 90]",
             env!("CARGO_PKG_VERSION")
         );
         return Ok(());
@@ -275,7 +275,7 @@ fn run() -> Result<()> {
         std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(std::env::temp_dir)
-            .join("WfZiUiBp")
+            .join("OCR")
             .join("settings.json")
     });
     ui::run(ui::Launch {

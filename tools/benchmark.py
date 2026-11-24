@@ -346,7 +346,7 @@ def desktop_window(pid):
     user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
     user.GetWindowThreadProcessId.restype = wintypes.DWORD
     window = None
-    while window := user.FindWindowExW(None, window, "WfZiUiBp_Desktop", None):
+    while window := user.FindWindowExW(None, window, "OCR_Desktop", None):
         owner = wintypes.DWORD()
         user.GetWindowThreadProcessId(window, ctypes.byref(owner))
         if owner.value == pid:
@@ -367,7 +367,7 @@ def request_desktop_exit(pid):
 
 def desktop_idle(exe, models, repetitions, idle_seconds):
     trials = []
-    with tempfile.TemporaryDirectory(prefix="wf-zi-ui-bp-idle-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="ocr-idle-") as scratch:
         root = Path(scratch)
         frozen, sidecars = freeze_executable(exe, root)
         for index in range(repetitions):
@@ -460,7 +460,7 @@ def save_results(output, metadata, fixtures, results):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--umi", type=Path, help="Original Umi-OCR Paddle 2.1.5 installation directory")
-    parser.add_argument("--rust", type=Path, default=PROJECT / "target" / "release" / "wf-zi-ui-bp.exe")
+    parser.add_argument("--rust", type=Path, default=PROJECT / "target" / "release" / "ocr.exe")
     parser.add_argument("--models", type=Path, default=PROJECT / "models")
     parser.add_argument("--rust-arg", action="append", default=[], help="Additional Rust argument; use --rust-arg=--flag")
     parser.add_argument("--output", type=Path, required=True)
@@ -518,7 +518,7 @@ def main():
         options["rust_v6_tiny"]["ocr.language"] = "v6_tiny"
     metadata["variant_options"] = options
     results = {variant: [] for variant in variants}
-    with tempfile.TemporaryDirectory(prefix="wf-zi-ui-bp-bench-") as scratch:
+    with tempfile.TemporaryDirectory(prefix="ocr-bench-") as scratch:
         root = Path(scratch)
         if not args.baseline_only:
             rust_copy, sidecars = freeze_executable(rust, root)

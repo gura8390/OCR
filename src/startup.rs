@@ -12,7 +12,7 @@ use windows_sys::{
 };
 
 const RUN: *const u16 = w!("Software\\Microsoft\\Windows\\CurrentVersion\\Run");
-const ENTRY: *const u16 = w!("WfZiUiBp");
+const ENTRY: *const u16 = w!("OCR");
 
 pub fn enabled() -> bool {
     let mut size = 0;

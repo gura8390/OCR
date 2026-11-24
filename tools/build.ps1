@@ -115,7 +115,7 @@ if (-not $Package) {
     return
 }
 
-$executable = Join-Path $projectRoot 'target\release\wf-zi-ui-bp.exe'
+$executable = Join-Path $projectRoot 'target\release\ocr.exe'
 if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
     throw "The x64 release executable was not found at $executable."
 }
@@ -173,7 +173,7 @@ $match = [regex]::Match($manifest, '(?m)^version\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+(
 if (-not $match.Success) {
     throw 'The package version could not be read from Cargo.toml.'
 }
-$archiveName = "WfZiUiBp-$($match.Groups[1].Value)-win-x64.zip"
+$archiveName = "OCR-$($match.Groups[1].Value)-win-x64.zip"
 $dist = if (-not $PackageDirectory) {
     Join-Path $projectRoot 'dist'
 } elseif ([IO.Path]::IsPathRooted($PackageDirectory)) {
@@ -187,7 +187,7 @@ if ($distDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) {
     throw "The package output directory cannot be a junction or symbolic link: $dist."
 }
 $dist = $distDirectory.FullName
-$portable = Join-Path $dist 'WfZiUiBp'
+$portable = Join-Path $dist 'OCR'
 $archive = Join-Path $dist $archiveName
 $archiveHash = "$archive.sha256"
 foreach ($outputPath in @($portable, $archive, $archiveHash)) {
@@ -197,13 +197,13 @@ foreach ($outputPath in @($portable, $archive, $archiveHash)) {
 }
 
 $stage = Join-Path $dist ('.package-' + [guid]::NewGuid().ToString('N'))
-$stagePortable = Join-Path $stage 'WfZiUiBp'
+$stagePortable = Join-Path $stage 'OCR'
 $stageModels = Join-Path $stagePortable 'models'
 $stageArchive = Join-Path $stage $archiveName
 $stageHash = "$stageArchive.sha256"
 $null = New-Item -ItemType Directory -Path $stageModels
 try {
-    Copy-Item -LiteralPath $executable -Destination (Join-Path $stagePortable 'WfZiUiBp.exe')
+    Copy-Item -LiteralPath $executable -Destination (Join-Path $stagePortable 'OCR.exe')
     foreach ($asset in $requiredModels) {
         Copy-Item -LiteralPath (Join-Path $models $asset) -Destination $stageModels
     }

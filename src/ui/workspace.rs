@@ -607,7 +607,7 @@ impl App {
 
     fn about(&self, ui: &mut Ui, p: Palette) {
         panel(ui, p, |ui| {
-            ui.heading("文字识别 WfZiUiBp");
+            ui.heading("文字识别 OCR");
             ui.label(format!("当前版本  •  v{}", env!("CARGO_PKG_VERSION")));
             ui.add_space(9.0);
             ui.label("离线截图、图片和文档 OCR，支持二维码与条码。");

@@ -64,7 +64,7 @@ public static class WfSilentQa {
 '@
 
 $project = Split-Path -Parent $PSScriptRoot
-if (-not $Executable) { $Executable = Join-Path $project 'target\release\wf-zi-ui-bp.exe' }
+if (-not $Executable) { $Executable = Join-Path $project 'target\release\ocr.exe' }
 if (-not $Fixture) { $Fixture = Join-Path $project 'verification\fixtures\compact.png' }
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $Fixture = (Resolve-Path -LiteralPath $Fixture).Path
@@ -87,7 +87,7 @@ $script:Report = [ordered]@{
 function Add-Check([string]$Name, $Detail) { $script:Checks.Add([ordered]@{ name = $Name; detail = $Detail }) }
 function Pump { [System.Windows.Forms.Application]::DoEvents() }
 function Get-ControlOwner {
-    $window = [WfSilentQa]::FindWindow('WfZiUiBp_Desktop', 'WfZiUiBp_Desktop')
+    $window = [WfSilentQa]::FindWindow('OCR_Desktop', 'OCR_Desktop')
     [uint32]$owner = 0
     if ($window -ne [IntPtr]::Zero) { [void][WfSilentQa]::GetWindowThreadProcessId($window, [ref]$owner) }
     return $owner
@@ -262,9 +262,9 @@ function Save-Report {
     $json
 }
 
-$testDir = Join-Path ([IO.Path]::GetTempPath()) ('wfziuibp-silent-' + [guid]::NewGuid().ToString('N'))
+$testDir = Join-Path ([IO.Path]::GetTempPath()) ('ocr-silent-' + [guid]::NewGuid().ToString('N'))
 try {
-    if ((Get-ControlOwner) -ne 0) { throw 'A WfZiUiBp desktop instance is already running. Close it before this isolated test.' }
+    if ((Get-ControlOwner) -ne 0) { throw 'An OCR desktop instance is already running. Close it before this isolated test.' }
     $script:ClipboardBackup = [Windows.Forms.Clipboard]::GetDataObject()
     if ($null -ne $script:ClipboardBackup) {
         $saved = [Windows.Forms.DataObject]::new()

@@ -144,7 +144,7 @@ def verify(port, extended_qr, artifacts, encrypted_pdf):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--rust", type=Path, default=bench.PROJECT / "target" / "release" / "wf-zi-ui-bp.exe")
+    parser.add_argument("--rust", type=Path, default=bench.PROJECT / "target" / "release" / "ocr.exe")
     parser.add_argument("--models", type=Path, default=bench.PROJECT / "models")
     parser.add_argument("--extended-qr", action="store_true")
     parser.add_argument("--encrypted-pdf", action="store_true", help="Also verify a pypdf-generated protected PDF")

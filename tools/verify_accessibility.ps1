@@ -18,7 +18,7 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-public static class WfZiUiBpQaWindow {
+public static class OcrQaWindow {
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindow(string className, string windowName);
     [DllImport("user32.dll")]
@@ -46,7 +46,7 @@ public static class WfZiUiBpQaWindow {
 '@
 
 $project = Split-Path -Parent $PSScriptRoot
-if (-not $Executable) { $Executable = Join-Path $project 'target\release\wf-zi-ui-bp.exe' }
+if (-not $Executable) { $Executable = Join-Path $project 'target\release\ocr.exe' }
 if (-not $Fixture) { $Fixture = Join-Path $project 'verification\fixtures\compact.png' }
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
 $Fixture = (Resolve-Path -LiteralPath $Fixture).Path
@@ -68,10 +68,10 @@ function Add-Check([string]$Name, $Detail) {
 }
 
 function Get-ControlWindowOwner {
-    $handle = [WfZiUiBpQaWindow]::FindWindow('WfZiUiBp_Desktop', 'WfZiUiBp_Desktop')
+    $handle = [OcrQaWindow]::FindWindow('OCR_Desktop', 'OCR_Desktop')
     if ($handle -eq [IntPtr]::Zero) { return 0 }
     [uint32]$owner = 0
-    [void][WfZiUiBpQaWindow]::GetWindowThreadProcessId($handle, [ref]$owner)
+    [void][OcrQaWindow]::GetWindowThreadProcessId($handle, [ref]$owner)
     return $owner
 }
 
@@ -107,7 +107,7 @@ function Get-AppWindow([switch]$IncludeHidden) {
     foreach ($window in $windows) {
         try {
             $current = $window.Current
-            if ($current.Name -match '文字识别.*WfZiUiBp' -and ($IncludeHidden -or -not $current.IsOffscreen)) {
+            if ($current.Name -match '文字识别.*OCR' -and ($IncludeHidden -or -not $current.IsOffscreen)) {
                 return $window
             }
         } catch [System.Windows.Automation.ElementNotAvailableException] {}
@@ -231,9 +231,9 @@ function Save-Report {
     $json
 }
 
-$testDir = Join-Path ([System.IO.Path]::GetTempPath()) ('wfziuibp-a11y-' + [guid]::NewGuid().ToString('N'))
+$testDir = Join-Path ([System.IO.Path]::GetTempPath()) ('ocr-a11y-' + [guid]::NewGuid().ToString('N'))
 try {
-    if ((Get-ControlWindowOwner) -ne 0) { throw 'A WfZiUiBp desktop instance is already running. Close it before this isolated test.' }
+    if ((Get-ControlWindowOwner) -ne 0) { throw 'An OCR desktop instance is already running. Close it before this isolated test.' }
     [void][System.IO.Directory]::CreateDirectory($testDir)
     $profile = Join-Path $testDir 'profile.json'
     [System.IO.File]::WriteAllText($profile, '{"hotkey":false,"auto_copy":false,"tray":true,"window_top":false,"tabs_locked":false,"startup_hidden":false}')
@@ -278,8 +278,8 @@ try {
         Wait-For { Find-ValueEditor '^识别文字' } 'the named writable OCR result editor'
     } else { Find-ValueEditor '^识别文字' }
     if ($null -ne $resultEditor) {
-        (Get-Pattern $resultEditor ([System.Windows.Automation.ValuePattern]::Pattern)).SetValue('WfZiUiBp 已编辑识别记录')
-        [void](Wait-For { Find-TextControl 'WfZiUiBp已编辑识别记录' } 'the OCR history value changed via UI Automation')
+        (Get-Pattern $resultEditor ([System.Windows.Automation.ValuePattern]::Pattern)).SetValue('OCR 已编辑识别记录')
+        [void](Wait-For { Find-TextControl 'OCR已编辑识别记录' } 'the OCR history value changed via UI Automation')
         Add-Check 'edit OCR history through ValuePattern' 'set and read back'
     }
 
@@ -304,8 +304,8 @@ try {
     } else { Find-ValueEditor '二维码|生成' }
     if ($null -ne $editor) {
         $value = Get-Pattern $editor ([System.Windows.Automation.ValuePattern]::Pattern)
-        $value.SetValue('WfZiUiBp UIA 文字输入验证')
-        [void](Wait-For { Find-TextControl 'WfZiUiBpUIA文字输入验证' } 'the QR value changed via UI Automation')
+        $value.SetValue('OCR UIA 文字输入验证')
+        [void](Wait-For { Find-TextControl 'OCRUIA文字输入验证' } 'the QR value changed via UI Automation')
         Invoke-Control '^刷新$'
         [void](Wait-For { Find-Control '^二维码预览$' } 'the generated QR image exposed to UI Automation')
         Add-Check 'edit QR content through ValuePattern' 'set, read back, refresh and locate generated QR preview'
@@ -324,7 +324,7 @@ try {
     $window = Get-AppWindow
     if ($VerifyTrayIdleCpu) {
         $mainWindow = [IntPtr]::new([long]$window.Current.NativeWindowHandle)
-        if ($mainWindow -eq [IntPtr]::Zero -or -not [WfZiUiBpQaWindow]::IsWindowVisible($mainWindow)) {
+        if ($mainWindow -eq [IntPtr]::Zero -or -not [OcrQaWindow]::IsWindowVisible($mainWindow)) {
             throw 'No visible native main window to verify before closing to the tray.'
         }
     }
@@ -338,16 +338,16 @@ try {
     }
     [void](Wait-For { (-not (Get-AppWindow)) -and (Get-ControlWindowOwner) -eq $script:Process.Id } 'the closed window retained in the background')
     $trayBounds = Wait-For {
-        $handle = [WfZiUiBpQaWindow]::FindWindow('WfZiUiBp_Desktop', 'WfZiUiBp_Desktop')
-        if ($handle -ne [IntPtr]::Zero -and (Get-ControlWindowOwner) -eq $script:Process.Id) { [WfZiUiBpQaWindow]::GetTrayBounds($handle) }
+        $handle = [OcrQaWindow]::FindWindow('OCR_Desktop', 'OCR_Desktop')
+        if ($handle -ne [IntPtr]::Zero -and (Get-ControlWindowOwner) -eq $script:Process.Id) { [OcrQaWindow]::GetTrayBounds($handle) }
     } 'the isolated process tray icon registered in the Windows shell'
     Add-Check 'close to tray' @{ action = $closePattern; shell_tray_bounds = $trayBounds }
 
     if ($VerifyTrayIdleCpu) {
         $nativeWindowHidden = {
             [uint32]$windowOwner = 0
-            [void][WfZiUiBpQaWindow]::GetWindowThreadProcessId($mainWindow, [ref]$windowOwner)
-            $windowOwner -eq $script:Process.Id -and -not [WfZiUiBpQaWindow]::IsWindowVisible($mainWindow)
+            [void][OcrQaWindow]::GetWindowThreadProcessId($mainWindow, [ref]$windowOwner)
+            $windowOwner -eq $script:Process.Id -and -not [OcrQaWindow]::IsWindowVisible($mainWindow)
         }
         [void](Wait-For $nativeWindowHidden 'the same native main window hidden to the tray')
         Start-Sleep -Milliseconds 500

@@ -30,7 +30,7 @@ public static class WfIdleQa {
 '@
 
 $project = Split-Path -Parent $PSScriptRoot
-if (-not $Executable) { $Executable = Join-Path $project 'target\release\wf-zi-ui-bp.exe' }
+if (-not $Executable) { $Executable = Join-Path $project 'target\release\ocr.exe' }
 if (-not $Models) { $Models = Join-Path $project 'models' }
 if (-not $Fixture) { $Fixture = Join-Path $project 'verification\fixtures\compact.png' }
 $Executable = (Resolve-Path -LiteralPath $Executable).Path
@@ -48,7 +48,7 @@ function Add-Check([string]$Name, $Detail) {
 }
 
 function Get-ControlOwner {
-    $window = [WfIdleQa]::FindWindow('WfZiUiBp_Desktop', 'WfZiUiBp_Desktop')
+    $window = [WfIdleQa]::FindWindow('OCR_Desktop', 'OCR_Desktop')
     [uint32]$owner = 0
     if ($window -ne [IntPtr]::Zero) {
         [void][WfIdleQa]::GetWindowThreadProcessId($window, [ref]$owner)
@@ -216,7 +216,7 @@ $desktopProc = $null
 $serverProc = $null
 try {
     if ((Get-ControlOwner) -ne 0) {
-        throw 'Another WfZiUiBp desktop instance is already running. Exit it before running this test.'
+        throw 'Another OCR desktop instance is already running. Exit it before running this test.'
     }
 
     # --- Part 1: Desktop tray mode ---
