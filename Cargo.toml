@@ -4,6 +4,7 @@ version = "0.2.3-p3"
 edition = "2024"
 rust-version = "1.95"
 description = "离线截图、图片及文档文字识别"
+license = "MIT"
 
 [dependencies]
 anyhow = "1"
